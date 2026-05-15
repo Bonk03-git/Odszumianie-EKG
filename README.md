@@ -17,3 +17,12 @@ Struktura plików powinna wyglądać następująco:
 ├── signal_loader.py
 ├── metrics.py
 └── algorytmy/ (savitzky-golay, transformata_falkowa, LMS)
+
+
+## Uruchamianie projektu
+
+Projekty należy uruchamiać z poziomu głównego katalogu za pomocą flagi `-m`.
+
+Przykład dla algorytmu Savitzky-Golay:
+```bash
+python -m algorytmy.savitzky-goolay
