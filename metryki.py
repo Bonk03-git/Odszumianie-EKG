@@ -70,7 +70,7 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
  #       print("[⚠️] Uwaga: Twoja funkcja odszum_sygnal nie obsługuje jeszcze parametru noise_type. Uruchamiam wersję domyślną.")
     #       odszumiony_frg = dwt.odszum_sygnal(zaszumiony_frg, poziomy=6)
     if algorytm == 'dwt':
-        odszumiony_frg = dwt.odszum_sygnal(zaszumiony_frg, poziomy=7) # dla szumu bw 7 poziomów
+        odszumiony_frg = dwt.odszum_sygnal(zaszumiony_frg, noise_type=noise_type)
 
     # 3. Obliczanie metryk po odszumieniu
     mse = oblicz_mse(czysty_frg, odszumiony_frg)
@@ -87,7 +87,7 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     # 5. Tworzenie wizualizacji w Matplotlib
     os_czasu = np.arange(len(czysty_frg)) / fs
     
-    fig, axs = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
+    fig, axs = plt.subplots(4, 1, figsize=(12, 8), sharex=True)
     fig.suptitle(f"Analiza odszumiania EKG falką db4 (Rekord {record_id}, Szum: {noise_type.upper()})", fontsize=14, fontweight='bold')
     
     # Wykres 1: Sygnał oryginalny
@@ -111,13 +111,42 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     axs[2].set_ylabel("Amplituda [mV]")
     axs[2].grid(True, linestyle='--', alpha=0.5)
     axs[2].legend(loc='upper right')
+
+        # Wykres 4: Porównanie sygnału oryginalnego i odszumionego
+    axs[3].plot(
+        os_czasu,
+        czysty_frg,
+        color='green',
+        linewidth=1.2,
+        label='Oryginalny EKG'
+    )
+
+    axs[3].plot(
+        os_czasu,
+        odszumiony_frg,
+        color='royalblue',
+        linewidth=1.0,
+        alpha=0.8,
+        label='Odszumiony DWT'
+    )
+
+    axs[3].set_title(
+        "4. Porównanie sygnału oryginalnego i odszumionego",
+        fontsize=11,
+        loc='left'
+    )
+
+    axs[3].set_xlabel("Czas [s]")
+    axs[3].set_ylabel("Amplituda [mV]")
+    axs[3].grid(True, linestyle='--', alpha=0.5)
+    axs[3].legend(loc='upper right')
     
     plt.tight_layout()
     plt.show()
 
 if __name__ == "__main__":
     # Test dla szumu typu Baseline Wander (Pływanie izolinii)
-    uruchom_analize_porownawcza(record_id='100', noise_type='ma', algorytm='dwt')
+    uruchom_analize_porownawcza(record_id='100', noise_type='em', algorytm='dwt')
     
     # Możesz odkomentować poniższą linię, aby od razu przetestować szum mięśniowy (Muscle Artifact)
     # uruchom_analize_porownawcza(record_id='100', noise_type='ma')
