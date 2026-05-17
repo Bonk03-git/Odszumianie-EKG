@@ -26,3 +26,5 @@ Projekty należy uruchamiać z poziomu głównego katalogu za pomocą flagi `-m`
 Przykład dla algorytmu Savitzky-Golay:
 ```bash
 python -m algorytmy.savitzky-goolay
+
+Metryki uruchamiamy po prostu: python metryki.py
