@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 try:
     from pobranie_sygnalu import get_processed_data
     from algorytmy import transformata_falkowa as dwt
-    from algorytmy import savitzky_golay as savgol  
+    from algorytmy import savitzky_golay as savgol
+    from algorytmy import LMS as lms
 except ImportError as e:
     print(f"Błąd krytyczny importu: {e}")
     print("Upewnij się, że uruchamiasz skrypt z głównego folderu projektu używając: python metryki.py")
@@ -53,17 +54,18 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     """Pobiera sygnał, odszumia go wybranym algorytmem i wyświetla obliczone metryki.
 
     Parametry:
-        algorytm: 'dwt' dla transformacji falkowej lub 'sg'/'savgol' dla filtru Savitzky-Golay.
+        algorytm: 'dwt' dla transformacji falkowej, 'sg'/'savgol' dla filtru Savitzky-Golay, lub 'lms' dla adaptacyjnego filtru LMS.
     """
     print("-" * 50)
     print(f"ANALIZA METRYK DLA REKORDU {record_id} (Szum: {noise_type.upper()})")
     print("-" * 50)
     
     # 1. Pobranie danych
-    czysty, zaszumiony, fs = get_processed_data(record_id, noise_type)
+    czysty, zaszumiony, referencyjny, fs = get_processed_data(record_id, noise_type)
     
     czysty_frg = czysty[:probki]
     zaszumiony_frg = zaszumiony[:probki]
+    referencyjny_frg = referencyjny[:probki]
     
     # Obliczamy początkowy SNR sygnału zaszumionego (przed filtracją)
     snr_przed = oblicz_snr(czysty_frg, zaszumiony_frg)
@@ -73,11 +75,14 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     if algorytm == 'dwt':
         odszumiony_frg = dwt.odszum_sygnal(zaszumiony_frg, noise_type=noise_type)
         algorytm_label = 'falkowy DWT'
-    elif algorytm == 'sg':
+    elif algorytm in ('sg', 'savgol'):
         odszumiony_frg = savgol.odszum_sygnal(zaszumiony_frg, noise_type=noise_type)
         algorytm_label = 'Savitzky-Golay'
+    elif algorytm == 'lms':
+        odszumiony_frg = lms.odszum_sygnal(zaszumiony_frg, referencyjny_frg, noise_type=noise_type)
+        algorytm_label = 'LMS'
     else:
-        raise ValueError("Nieznany algorytm. Wybierz 'dwt' lub 'sg'.")
+        raise ValueError("Nieznany algorytm. Wybierz 'dwt', 'sg', 'savgol' lub 'lms'.")
 
     # 3. Obliczanie metryk po odszumieniu
     mse = oblicz_mse(czysty_frg, odszumiony_frg)
@@ -152,7 +157,7 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     plt.show()
 
 if __name__ == "__main__":
-    # Test. Opcje algorytmu: 'dwt' lub 'sg' (Savitzky-Golay). Opcje szumu: 'bw', 'ma', 'em'.
-    uruchom_analize_porownawcza(record_id='100', noise_type='ma', algorytm='sg')
+    # Test. Opcje algorytmu: 'dwt', 'sg'/'savgol' lub 'lms'. Opcje szumu: 'bw', 'ma', 'em'.
+    uruchom_analize_porownawcza(record_id='100', noise_type='ma', algorytm='lms')
     
 

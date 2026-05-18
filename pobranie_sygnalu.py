@@ -31,23 +31,35 @@ def load_ecg_signal(record_id, channel=0):
     return clean_signal, fs
 
 def add_noise(clean_signal, noise_type, snr_db=5):
-    """Nakłada szum z bazy MIT-BIH Noise Stress Test Database."""
+    """Nakłada szum z bazy MIT-BIH Noise Stress Test Database i zwraca kanał referencyjny.
+
+    W celu zastosowania filtru LMS sygnał zaszumiony tworzony jest na podstawie
+    pierwszego kanału szumu, a sygnał referencyjny pobierany jest z drugiego kanału
+    tego samego rekordu.
+    """
     noise_record = wfdb.rdrecord(f'mit-bih-noise-stress-test-database-1.0.0/{noise_type}')
-    noise_signal = noise_record.p_signal[:, 0] 
+    noise_data = noise_record.p_signal
     
-    # Dopasowanie długości szumu do sygnału
-    if len(noise_signal) < len(clean_signal):
-        noise_signal = np.tile(noise_signal, int(np.ceil(len(clean_signal) / len(noise_signal))))
-    noise_signal = noise_signal[:len(clean_signal)]
-    
-    combined_signal = clean_signal + noise_signal
-    return combined_signal
+    if len(noise_data) < len(clean_signal):
+        repeats = int(np.ceil(len(clean_signal) / len(noise_data)))
+        noise_data = np.tile(noise_data, (repeats, 1)) if noise_data.ndim == 2 else np.tile(noise_data, repeats)
+    noise_data = noise_data[:len(clean_signal)]
+
+    if noise_data.ndim == 1:
+        noisy_noise = noise_data
+        reference_noise = noise_data.copy()
+    else:
+        noisy_noise = noise_data[:, 0]
+        reference_noise = noise_data[:, 1] if noise_data.shape[1] > 1 else noise_data[:, 0]
+
+    combined_signal = clean_signal + noisy_noise
+    return combined_signal, reference_noise
 
 def get_processed_data(record_id, noise_type):
     """Funkcja-skrót algorytmów."""
     clean, fs = load_ecg_signal(record_id)
-    noisy = add_noise(clean, noise_type)
-    return clean, noisy, fs
+    noisy, reference = add_noise(clean, noise_type)
+    return clean, noisy, reference, fs
 
 if __name__ == "__main__":
     c, n, f = get_processed_data('100', 'bw')
