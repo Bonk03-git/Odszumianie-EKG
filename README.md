@@ -18,6 +18,16 @@ Struktura plików powinna wyglądać następująco:
 ├── metrics.py
 └── algorytmy/ (savitzky-golay, transformata_falkowa, LMS)
 
+## Przygotowanie środowiska i instalacja
+
+# 1. Stworzenie środowiska z odpowiednią wersją Pythona
+conda create -n odszumianie-ekg python=3.11 -y
+
+# 2. Aktywacja środowiska
+conda activate odszumianie-ekg
+
+# 3. Instalacja wymaganych bibliotek
+pip install -r requirements.txt
 
 ## Uruchamianie projektu
 

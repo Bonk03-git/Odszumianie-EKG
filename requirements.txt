@@ -1,0 +1,6 @@
+# Pakiety wymagane do uruchomienia projektu Odszumianie-EKG
+numpy
+scipy
+matplotlib
+PyWavelets
+wfdb

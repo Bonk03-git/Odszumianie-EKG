@@ -1,3 +1,4 @@
+import importlib.util
 import numpy as np
 import os
 import sys
@@ -5,15 +6,12 @@ import matplotlib.pyplot as plt
 
 try:
     from pobranie_sygnalu import get_processed_data
-except ImportError:
-    print("Błąd: Nie można zaimportować 'pobranie_sygnalu'")
-
-# Bezpieczny import Twojego algorytmu z podfolderu 'algorytmy'
-sys.path.append(os.path.join(os.path.dirname(__file__), 'algorytmy'))
-try:
-    import transformata_falkowa as dwt
-except ImportError:
-    print("Błąd: Nie można znaleźć skryptu falkowego w folderze 'algorytmy'.")
+    from algorytmy import transformata_falkowa as dwt
+    from algorytmy import savitzky_golay as savgol  
+except ImportError as e:
+    print(f"Błąd krytyczny importu: {e}")
+    print("Upewnij się, że uruchamiasz skrypt z głównego folderu projektu używając: python metryki.py")
+    exit(1)
 
 def oblicz_mse(czysty, odszumiony):
     """Średni błąd kwadratowy (Mean Squared Error)."""
@@ -31,15 +29,20 @@ def oblicz_snr(czysty, odszumiony):
 
 def oblicz_prd(czysty, odszumiony):
     """
-    Znormalizowana wersja PRD (często oznaczana jako PRD_1).
-    Odejmuje średnią wartość (składową stałą), dzięki czemu przesunięcie 
-    linii bazowej nie fałszuje wyniku zniekształcenia morfologii fal.
+    Poprawna miara PRD dla EKG.
+    Centruje sygnał czysty i odnosi błąd bezpośrednio do niego.
     """
-    czysty_mean = czysty - np.mean(czysty)
-    odszumiony_mean = odszumiony - np.mean(odszumiony)
+    # 1. Obliczamy średnią tylko z czystego sygnału
+    czysty_mean_val = np.mean(czysty)
     
-    licznik = np.sum((czysty_mean - odszumiony_mean) ** 2)
-    mianownik = np.sum(czysty_mean ** 2)
+    # 2. Odejmujemy tę samą średnią od obu sygnałów
+    czysty_centered = czysty - czysty_mean_val
+    odszumiony_centered = odszumiony - czysty_mean_val
+    
+    # 3. Licznik to po prostu suma kwadratów różnic między oryginalnymi sygnałami
+    # (czysty_centered - odszumiony_centered) to to samo co (czysty - odszumiony)
+    licznik = np.sum((czysty - odszumiony) ** 2)
+    mianownik = np.sum(czysty_centered ** 2)
     
     if mianownik == 0:
         return float('inf')
@@ -47,7 +50,11 @@ def oblicz_prd(czysty, odszumiony):
     return np.sqrt(licznik / mianownik) * 100
 
 def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, algorytm='dwt'):
-    """Pobiera sygnał, odszumia go i wyświetla obliczone metryki."""
+    """Pobiera sygnał, odszumia go wybranym algorytmem i wyświetla obliczone metryki.
+
+    Parametry:
+        algorytm: 'dwt' dla transformacji falkowej lub 'sg'/'savgol' dla filtru Savitzky-Golay.
+    """
     print("-" * 50)
     print(f"ANALIZA METRYK DLA REKORDU {record_id} (Szum: {noise_type.upper()})")
     print("-" * 50)
@@ -62,15 +69,15 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     snr_przed = oblicz_snr(czysty_frg, zaszumiony_frg)
     print(f"Początkowy SNR (przed odszumianiem): {snr_przed:.2f} dB")
     
-    # 2. Wywołanie Twojego algorytmu falkowego
-    # Automatycznie przekazujemy noise_type, aby algorytm wiedział czy zerować aproksymację
-    #try:
-   #     odszumiony_frg = dwt.odszum_sygnal(zaszumiony_frg, poziomy=6, noise_type=noise_type)
-  #  except AttributeError:
- #       print("[⚠️] Uwaga: Twoja funkcja odszum_sygnal nie obsługuje jeszcze parametru noise_type. Uruchamiam wersję domyślną.")
-    #       odszumiony_frg = dwt.odszum_sygnal(zaszumiony_frg, poziomy=6)
+    # 2. Wywołanie wybranego algorytmu odszumiania
     if algorytm == 'dwt':
         odszumiony_frg = dwt.odszum_sygnal(zaszumiony_frg, noise_type=noise_type)
+        algorytm_label = 'falkowy DWT'
+    elif algorytm == 'sg':
+        odszumiony_frg = savgol.odszum_sygnal(zaszumiony_frg, noise_type=noise_type)
+        algorytm_label = 'Savitzky-Golay'
+    else:
+        raise ValueError("Nieznany algorytm. Wybierz 'dwt' lub 'sg'.")
 
     # 3. Obliczanie metryk po odszumieniu
     mse = oblicz_mse(czysty_frg, odszumiony_frg)
@@ -78,7 +85,7 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     prd = oblicz_prd(czysty_frg, odszumiony_frg)
     
     # 4. Wyświetlenie wyników
-    print(f"\nWyniki po zastosowaniu transformaty falkowej DWT:")
+    print(f"\nWyniki po zastosowaniu filtra: {algorytm_label}")
     print(f"  * MSE (im bliżej 0, tym lepiej):   {mse:.6f}")
     print(f"  * SNR (im wyższy, tym lepiej):     {snr_po:.2f} dB  (Zysk: {snr_po - snr_przed:+.2f} dB)")
     print(f"  * PRD (im bliżej 0%, tym lepiej):  {prd:.2f}%")
@@ -88,7 +95,7 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     os_czasu = np.arange(len(czysty_frg)) / fs
     
     fig, axs = plt.subplots(4, 1, figsize=(12, 8), sharex=True)
-    fig.suptitle(f"Analiza odszumiania EKG falką db4 (Rekord {record_id}, Szum: {noise_type.upper()})", fontsize=14, fontweight='bold')
+    fig.suptitle(f"Analiza odszumiania EKG ({algorytm_label}, Rekord {record_id}, Szum: {noise_type.upper()})", fontsize=14, fontweight='bold')
     
     # Wykres 1: Sygnał oryginalny
     axs[0].plot(os_czasu, czysty_frg, color='green', linewidth=1.2, label='Oryginalny EKG')
@@ -104,15 +111,15 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     axs[1].grid(True, linestyle='--', alpha=0.5)
     axs[1].legend(loc='upper right')
     
-    # Wykres 3: Sygnał po filtracji DWT
-    axs[2].plot(os_czasu, odszumiony_frg, color='royalblue', linewidth=1.2, label='Odszumiony DWT')
-    axs[2].set_title(f"3. Sygnał po odszumieniu falkowym (Końcowy SNR: {snr_po:.2f} dB, PRD: {prd:.2f}%)", fontsize=11, loc='left')
+    # Wykres 3: Sygnał po filtracji
+    axs[2].plot(os_czasu, odszumiony_frg, color='royalblue', linewidth=1.2, label=f'Odszumiony ({algorytm_label})')
+    axs[2].set_title(f"3. Sygnał po odszumieniu ({algorytm_label}) (Końcowy SNR: {snr_po:.2f} dB, PRD: {prd:.2f}%)", fontsize=11, loc='left')
     axs[2].set_xlabel("Czas [s]")
     axs[2].set_ylabel("Amplituda [mV]")
     axs[2].grid(True, linestyle='--', alpha=0.5)
     axs[2].legend(loc='upper right')
 
-        # Wykres 4: Porównanie sygnału oryginalnego i odszumionego
+    # Wykres 4: Porównanie sygnału oryginalnego i odszumionego
     axs[3].plot(
         os_czasu,
         czysty_frg,
@@ -127,7 +134,7 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
         color='royalblue',
         linewidth=1.0,
         alpha=0.8,
-        label='Odszumiony DWT'
+        label=f'Odszumiony ({algorytm_label})'
     )
 
     axs[3].set_title(
@@ -145,8 +152,7 @@ def uruchom_analize_porownawcza(record_id='100', noise_type='bw', probki=3600, a
     plt.show()
 
 if __name__ == "__main__":
-    # Test dla szumu typu Baseline Wander (Pływanie izolinii)
-    uruchom_analize_porownawcza(record_id='100', noise_type='em', algorytm='dwt')
+    # Test. Opcje algorytmu: 'dwt' lub 'sg' (Savitzky-Golay). Opcje szumu: 'bw', 'ma', 'em'.
+    uruchom_analize_porownawcza(record_id='100', noise_type='ma', algorytm='sg')
     
-    # Możesz odkomentować poniższą linię, aby od razu przetestować szum mięśniowy (Muscle Artifact)
-    # uruchom_analize_porownawcza(record_id='100', noise_type='ma')
+
