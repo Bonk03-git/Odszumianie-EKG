@@ -12,21 +12,26 @@ Projekt wykorzystuje bazy danych PhysioNet. Aby uruchomić algorytmy, należy po
     *   Folder powinien nazywać się: `mit-bih-noise-stress-test-database-1.0.0`
 
 Struktura plików powinna wyglądać następująco:
+
 ├── mit-bih-arrhythmia-database-1.0.0/
+
 ├── mit-bih-noise-stress-test-database-1.0.0/
-├── signal_loader.py
+
+├── pobranie_sygnalu.py
+
 ├── metrics.py
+
 └── algorytmy/ (savitzky-golay, transformata_falkowa, LMS)
 
 ## Przygotowanie środowiska i instalacja
 
-# 1. Stworzenie środowiska z odpowiednią wersją Pythona
+#### 1. Stworzenie środowiska z odpowiednią wersją Pythona
 conda create -n odszumianie-ekg python=3.11 -y
 
-# 2. Aktywacja środowiska
+#### 2. Aktywacja środowiska
 conda activate odszumianie-ekg
 
-# 3. Instalacja wymaganych bibliotek
+#### 3. Instalacja wymaganych bibliotek
 pip install -r requirements.txt
 
 ## Uruchamianie projektu
